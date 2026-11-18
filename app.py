@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parent
 DB = Path(os.environ.get('TASK_DB', ROOT / 'data' / 'tasks.sqlite3'))
 FREQUENCIES = ('daily', 'weekly', 'monthly')
 PEOPLE = ('kenzo', 'albane', 'both')
-EXAMPLES = [
+LEGACY_EXAMPLES = [
     ('Faire la vaisselle', 'daily', 15),
     ('Ranger la cuisine', 'daily', 10),
     ('Sortir les poubelles', 'daily', 5),
@@ -62,8 +62,14 @@ def initialize():
             CREATE INDEX IF NOT EXISTS completions_day ON completions(day);
         ''')
         db.execute('BEGIN IMMEDIATE')
-        if not db.execute('SELECT 1 FROM tasks LIMIT 1').fetchone():
-            db.executemany('INSERT INTO tasks(name, frequency, minutes) VALUES (?, ?, ?)', EXAMPLES)
+        if db.execute('PRAGMA user_version').fetchone()[0] == 0:
+            # The original release inserted the examples at fixed IDs before allowing user tasks.
+            db.executemany('''
+                UPDATE tasks SET archived = 1
+                WHERE id = ? AND name = ? AND frequency = ? AND minutes = ? AND archived = 0
+                AND NOT EXISTS (SELECT 1 FROM completions WHERE task_id = tasks.id)
+            ''', [(task_id, *task) for task_id, task in enumerate(LEGACY_EXAMPLES, start=1)])
+            db.execute('PRAGMA user_version = 1')
 
 
 def parse_date(value):

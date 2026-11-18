@@ -51,6 +51,7 @@ const formatMonth = value => format({month: 'long', year: 'numeric'}, value);
 const shortDate = value => format({day: 'numeric', month: 'short'}, value);
 const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value || '') && value >= '0100-01-01' && value <= '9998-12-31' && dateKey(dateFrom(value)) === value;
 const sumMinutes = rows => rows.reduce((total, row) => total + row.minutes, 0);
+const percentOf = (part, total) => total ? Math.round(part * 100 / total) : 0;
 const plural = (count, singular, pluralForm = `${singular}s`) => count === 1 ? singular : pluralForm;
 const escape = value => String(value).replace(/[&<>"']/g, char => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'})[char]);
 
@@ -187,20 +188,35 @@ function taskPanel(frequency, completions, title, includeDate = false) {
   </section>`;
 }
 
-function distribution(completions, subtitle) {
+function minutesByPerson(completions) {
   const totals = {kenzo: 0, albane: 0};
   for (const {who, minutes} of completions) {
-    if (who === 'both' || who === 'kenzo') totals.kenzo += who === 'both' ? minutes / 2 : minutes;
-    if (who === 'both' || who === 'albane') totals.albane += who === 'both' ? minutes / 2 : minutes;
+    if (who === 'both') {
+      totals.kenzo += minutes / 2;
+      totals.albane += minutes / 2;
+    } else {
+      totals[who] += minutes;
+    }
   }
+  return totals;
+}
+
+function distribution(completions, subtitle, dailyEstimate) {
+  const totals = minutesByPerson(completions);
   const total = sumMinutes(completions);
-  const kenzoShare = total ? Math.round(totals.kenzo * 100 / total) : 0;
+  const kenzoShare = percentOf(totals.kenzo, total);
   const share = {kenzo: kenzoShare, albane: total ? 100 - kenzoShare : 0};
+  const dailyTotals = dailyEstimate ? minutesByPerson(dailyEstimate.completions) : null;
   return `<section class="panel distribution">
     <header class="panel-heading"><span class="section-icon peach">${icon('people')}</span><div><h2>Répartition</h2><p>${subtitle}</p></div></header>
     <div class="distribution-body">${['kenzo', 'albane'].map(who => `
       <div class="distribution-person">${avatar(who)}<strong>${people[who]}</strong><span>${duration(Math.floor(totals[who]))}${totals[who] % 1 ? ' 30 s' : ''}</span></div>
       <div class="track"><span class="${who}" style="width:${share[who]}%"></span></div>`).join('')}</div>
+    ${dailyTotals ? `<div class="distribution-estimate">
+      <h3>Part du temps total estimé des tâches journalières</h3>
+      <dl>${Object.entries(dailyTotals).map(([who, minutes]) => `
+        <div><dt>${people[who]}</dt><dd class="${who}">${percentOf(minutes, dailyEstimate.totalMinutes)} %</dd></div>`).join('')}</dl>
+    </div>` : ''}
   </section>`;
 }
 
@@ -218,11 +234,10 @@ function renderDaily() {
   const doneIds = new Set(daily.map(item => item.task_id));
   const remaining = tasks.filter(task => !doneIds.has(task.id));
   const total = tasks.length;
-  const progress = total ? Math.round(daily.length * 100 / total) : 0;
   const remainingMinutes = sumMinutes(remaining);
   const completedMinutes = sumMinutes(daily);
   const totalMinutes = completedMinutes + remainingMinutes;
-  const timeProgress = totalMinutes ? Math.round(completedMinutes * 100 / totalMinutes) : 0;
+  const timeProgress = percentOf(completedMinutes, totalMinutes);
   const today = dateKey(day) === dateKey(new Date());
   const allDone = data.completions.filter(item => item.day === dateKey(day));
   return `${heading('Visualisez les tâches et indiquez qui les a réalisées.')}
@@ -237,17 +252,13 @@ function renderDaily() {
       <div class="hero-progress">
         <div><span>Temps estimé réalisé</span><strong>${duration(completedMinutes)} sur ${duration(totalMinutes)} · ${timeProgress} %</strong></div>
         <div class="track" role="progressbar" aria-label="Part du temps total estimé réalisée" aria-valuenow="${timeProgress}" aria-valuetext="${timeProgress} %, ${duration(completedMinutes)} sur ${duration(totalMinutes)}"><span style="width:${timeProgress}%"></span></div>
-      </div>
-      <div class="hero-progress">
-        <div><span>Tâches réalisées</span><strong>${progress} %</strong></div>
-        <div class="track" role="progressbar" aria-label="Tâches journalières réalisées" aria-valuenow="${progress}"><span style="width:${progress}%"></span></div>
       </div></div>
       <div class="hero-art" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="art-sheet"><div class="art-tab"></div><div>${icon('check')}<i></i></div><div>${icon('check')}<i></i></div><div><b></b><i></i></div></div><span class="art-tick">${icon('check')}</span><span class="art-spark spark-one">✦</span><span class="art-spark spark-two">✧</span><span class="art-dot"></span></div>
     </section>
     <div class="columns"><div class="column">
       ${taskPanel('daily', daily, 'Tâches journalières')}
       ${taskPanel('weekly', records('weekly'), 'Tâches de la semaine', true)}
-    </div><div class="column">${distribution(allDone, 'Temps des tâches réalisées ce jour')}${activity(allDone)}</div></div>`;
+    </div><div class="column">${distribution(allDone, 'Temps des tâches réalisées ce jour', {completions: daily, totalMinutes})}${activity(allDone)}</div></div>`;
 }
 
 function renderWeekly() {

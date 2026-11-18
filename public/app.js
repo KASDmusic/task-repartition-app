@@ -219,14 +219,29 @@ function renderDaily() {
   const remaining = tasks.filter(task => !doneIds.has(task.id));
   const total = tasks.length;
   const progress = total ? Math.round(daily.length * 100 / total) : 0;
+  const remainingMinutes = sumMinutes(remaining);
+  const completedMinutes = sumMinutes(daily);
+  const totalMinutes = completedMinutes + remainingMinutes;
+  const timeProgress = totalMinutes ? Math.round(completedMinutes * 100 / totalMinutes) : 0;
   const today = dateKey(day) === dateKey(new Date());
   const allDone = data.completions.filter(item => item.day === dateKey(day));
   return `${heading('Visualisez les tâches et indiquez qui les a réalisées.')}
     <section class="hero">
       <div class="hero-content"><div class="hero-label">${icon('calendar')} ${titleCase(formatDay(day))}</div>
       <h2>${today ? 'Les tâches du jour' : 'Les tâches de la journée'}</h2>
-      <p>${remaining.length ? `${remaining.length} ${plural(remaining.length, 'tâche à faire', 'tâches à faire')} <span>·</span> ${duration(sumMinutes(remaining))} environ` : total ? 'Toutes les tâches journalières sont terminées.' : 'Aucune tâche journalière prévue.'}</p>
-      <div class="hero-progress"><div><span>Progression</span><strong>${progress} %</strong></div><div class="track" role="progressbar" aria-label="Tâches journalières réalisées" aria-valuenow="${progress}"><span style="width:${progress}%"></span></div></div></div>
+      <p>${remaining.length ? `${remaining.length} ${plural(remaining.length, 'tâche à faire', 'tâches à faire')}` : total ? 'Toutes les tâches journalières sont terminées.' : 'Aucune tâche journalière prévue.'}</p>
+      <dl class="hero-times">
+        <div><dt>Temps total estimé</dt><dd>${duration(totalMinutes)}</dd></div>
+        <div><dt>Temps restant estimé</dt><dd>${duration(remainingMinutes)}</dd></div>
+      </dl>
+      <div class="hero-progress">
+        <div><span>Temps estimé réalisé</span><strong>${duration(completedMinutes)} sur ${duration(totalMinutes)} · ${timeProgress} %</strong></div>
+        <div class="track" role="progressbar" aria-label="Part du temps total estimé réalisée" aria-valuenow="${timeProgress}" aria-valuetext="${timeProgress} %, ${duration(completedMinutes)} sur ${duration(totalMinutes)}"><span style="width:${timeProgress}%"></span></div>
+      </div>
+      <div class="hero-progress">
+        <div><span>Tâches réalisées</span><strong>${progress} %</strong></div>
+        <div class="track" role="progressbar" aria-label="Tâches journalières réalisées" aria-valuenow="${progress}"><span style="width:${progress}%"></span></div>
+      </div></div>
       <div class="hero-art" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="art-sheet"><div class="art-tab"></div><div>${icon('check')}<i></i></div><div>${icon('check')}<i></i></div><div><b></b><i></i></div></div><span class="art-tick">${icon('check')}</span><span class="art-spark spark-one">✦</span><span class="art-spark spark-two">✧</span><span class="art-dot"></span></div>
     </section>
     <div class="columns"><div class="column">

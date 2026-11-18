@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f8f7fc">
+  <title>À deux · Partage des tâches</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Geist:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" type="module"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Aller au contenu</a>
+  <aside class="sidebar">
+    <a class="brand" href="/" aria-label="À deux, accueil">
+      <span class="brand-mark" data-icon="brand"></span>
+      <span><strong>À deux<span class="brand-dot">.</span></strong><small>Le partage des tâches</small></span>
+    </a>
+    <div class="sidebar-middle">
+      <p class="nav-caption">Espace de vie</p>
+      <nav id="nav" aria-label="Navigation principale"></nav>
+    </div>
+    <div class="household">
+      <div class="avatar-stack" aria-hidden="true"><span class="avatar kenzo">K</span><span class="avatar albane">A</span></div>
+      <div><strong>Notre foyer</strong><small>Kenzo &amp; Albane</small></div>
+    </div>
+  </aside>
+  <div class="workspace">
+    <header class="topbar">
+      <div class="breadcrumb"><span data-icon="home"></span><span>Notre foyer</span><span data-icon="right"></span><strong id="breadcrumb">Journalier</strong></div>
+      <button type="button" class="button primary" id="add-task"><span data-icon="plus"></span> Nouvelle tâche</button>
+    </header>
+    <main id="main" tabindex="-1">
+      <div id="view" aria-busy="true"><p class="loading">Chargement des tâches…</p></div>
+    </main>
+  </div>
+  <dialog id="dialog" aria-labelledby="dialog-title"></dialog>
+  <div class="toast" id="toast" role="status" hidden></div>
+</body>
+</html>

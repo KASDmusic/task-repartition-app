@@ -196,13 +196,9 @@ main:focus { outline: none; }
 .distribution-person .avatar { width: 26px; height: 26px; font-size: 11px; }
 .distribution-person > span:last-child { margin-left: auto; color: var(--muted); font-size: 12px; }
 .distribution-body .track + .distribution-person { margin-top: 8px; }
-.distribution-estimate { padding: 12px 18px 15px; border-top: 1px solid var(--line); }
-.distribution-estimate h3 { margin: 0; color: var(--muted); font-size: 12px; font-weight: 600; }
-.distribution-estimate dl { display: grid; gap: 7px; margin: 10px 0 0; font-size: 13px; }
-.distribution-estimate dl div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.distribution-estimate dd { margin: 0; font-weight: 700; }
-.distribution-estimate dd.kenzo { color: #5633b0; }
-.distribution-estimate dd.albane { color: #91492e; }
+.distribution-estimate { border-top: 1px solid var(--line); }
+.distribution-estimate h3 { margin: 0; padding: 13px 18px 0; color: var(--muted); font-size: 12px; font-weight: 600; }
+.distribution-estimate .distribution-person > span:last-child { font-weight: 700; }
 .track .kenzo { background: var(--kenzo); }
 .track .albane { background: var(--albane); }
 .activity-empty { min-height: 108px; display: grid; align-content: center; justify-items: center; gap: 8px; padding: 13px; text-align: center; color: var(--muted); font-size: 12px; }

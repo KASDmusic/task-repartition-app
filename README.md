@@ -25,6 +25,8 @@ Le volume Docker `task-data` conserve la base SQLite au-delà des redémarrages 
 - **Mensuel** indique le nombre de réalisations par fréquence, le temps estimé, la répartition et l’historique. Les tâches mensuelles se valident dans cette vue.
 - **Mes tâches** permet de modifier le nom ou la durée d’une tâche, ou de l’archiver. **Nouvelle tâche** permet de choisir la fréquence et de renseigner la durée en minutes.
 
+La répartition en pourcentage compare le temps attribué à chaque personne au temps total estimé de la période. La vue journalière compte les tâches journalières. La semaine ajoute les tâches hebdomadaires aux sept journées et le mois inclut les trois fréquences. Dans le bilan mensuel, une tâche hebdomadaire compte au mois de sa réalisation ou au mois du dimanche de sa semaine si elle reste à faire.
+
 Les trois listes sont vides au premier démarrage. Chaque tâche peut être validée une fois par période. Les tâches validées ensemble comptent une fois, et leur durée estimée est répartie à parts égales. Les réalisations gardent le nom et la durée enregistrés lors de leur validation, y compris après l’archivage de la tâche.
 
 Lors du premier démarrage après une mise à jour depuis la version qui fournissait des exemples, les exemples intacts et sans réalisation sont archivés automatiquement. Les exemples modifiés, les tâches ajoutées et l’historique sont conservés.

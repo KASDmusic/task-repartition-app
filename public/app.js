@@ -83,6 +83,16 @@ function periodTasks(frequency, completions) {
   return [...active, ...completions.filter(item => !activeIds.has(item.task_id)).map(item => ({...item, id: item.task_id}))];
 }
 
+function pendingTasks(tasks, completions) {
+  const doneIds = new Set(completions.map(item => item.task_id));
+  return tasks.filter(task => !doneIds.has(task.id));
+}
+
+function pendingMinutes(frequency, completions) {
+  const active = data.tasks.filter(task => task.frequency === frequency);
+  return sumMinutes(pendingTasks(active, completions));
+}
+
 async function api(path, method = 'GET', body) {
   const response = await fetch(`/api/${path}`, {
     method,
@@ -201,22 +211,34 @@ function minutesByPerson(completions) {
   return totals;
 }
 
-function distribution(completions, subtitle, dailyEstimate) {
+function distributionBars(values) {
+  return `<div class="distribution-body">${['kenzo', 'albane'].map(who => {
+    const {label, percent} = values[who];
+    return `<div class="distribution-person">${avatar(who)}<strong>${people[who]}</strong><span>${label}</span></div>
+      <div class="track" aria-hidden="true"><span class="${who}" style="width:${percent}%"></span></div>`;
+  }).join('')}</div>`;
+}
+
+function distribution(completions, subtitle, estimate) {
   const totals = minutesByPerson(completions);
   const total = sumMinutes(completions);
   const kenzoShare = percentOf(totals.kenzo, total);
   const share = {kenzo: kenzoShare, albane: total ? 100 - kenzoShare : 0};
-  const dailyTotals = dailyEstimate ? minutesByPerson(dailyEstimate.completions) : null;
+  const timeValues = Object.fromEntries(Object.entries(totals).map(([who, minutes]) => [who, {
+    label: `${duration(Math.floor(minutes))}${minutes % 1 ? ' 30 s' : ''}`,
+    percent: share[who],
+  }]));
+  const estimateValues = Object.fromEntries(Object.entries(minutesByPerson(estimate.completions)).map(([who, minutes]) => {
+    const percent = percentOf(minutes, estimate.totalMinutes);
+    return [who, {label: `${percent} %`, percent}];
+  }));
   return `<section class="panel distribution">
     <header class="panel-heading"><span class="section-icon peach">${icon('people')}</span><div><h2>Répartition</h2><p>${subtitle}</p></div></header>
-    <div class="distribution-body">${['kenzo', 'albane'].map(who => `
-      <div class="distribution-person">${avatar(who)}<strong>${people[who]}</strong><span>${duration(Math.floor(totals[who]))}${totals[who] % 1 ? ' 30 s' : ''}</span></div>
-      <div class="track"><span class="${who}" style="width:${share[who]}%"></span></div>`).join('')}</div>
-    ${dailyTotals ? `<div class="distribution-estimate">
-      <h3>Part du temps total estimé des tâches journalières</h3>
-      <dl>${Object.entries(dailyTotals).map(([who, minutes]) => `
-        <div><dt>${people[who]}</dt><dd class="${who}">${percentOf(minutes, dailyEstimate.totalMinutes)} %</dd></div>`).join('')}</dl>
-    </div>` : ''}
+    ${distributionBars(timeValues)}
+    <div class="distribution-estimate">
+      <h3>${estimate.title} · ${duration(estimate.totalMinutes)}</h3>
+      ${distributionBars(estimateValues)}
+    </div>
   </section>`;
 }
 
@@ -231,8 +253,7 @@ function activity(completions) {
 function renderDaily() {
   const daily = records('daily');
   const tasks = periodTasks('daily', daily);
-  const doneIds = new Set(daily.map(item => item.task_id));
-  const remaining = tasks.filter(task => !doneIds.has(task.id));
+  const remaining = pendingTasks(tasks, daily);
   const total = tasks.length;
   const remainingMinutes = sumMinutes(remaining);
   const completedMinutes = sumMinutes(daily);
@@ -240,6 +261,7 @@ function renderDaily() {
   const timeProgress = percentOf(completedMinutes, totalMinutes);
   const today = dateKey(day) === dateKey(new Date());
   const allDone = data.completions.filter(item => item.day === dateKey(day));
+  const estimate = {title: 'Part du temps total estimé des tâches journalières', completions: daily, totalMinutes};
   return `${heading('Visualisez les tâches et indiquez qui les a réalisées.')}
     <section class="hero">
       <div class="hero-content"><div class="hero-label">${icon('calendar')} ${titleCase(formatDay(day))}</div>
@@ -258,19 +280,24 @@ function renderDaily() {
     <div class="columns"><div class="column">
       ${taskPanel('daily', daily, 'Tâches journalières')}
       ${taskPanel('weekly', records('weekly'), 'Tâches de la semaine', true)}
-    </div><div class="column">${distribution(allDone, 'Temps des tâches réalisées ce jour', {completions: daily, totalMinutes})}${activity(allDone)}</div></div>`;
+    </div><div class="column">${distribution(allDone, 'Temps des tâches réalisées ce jour', estimate)}${activity(allDone)}</div></div>`;
 }
 
 function renderWeekly() {
   const start = weekStart(day);
   const days = Array.from({length: 7}, (_, index) => shiftDay(start, index));
   const weekly = records('weekly');
-  const dailyCount = days.reduce((total, value) => total + records('daily', value).length, 0);
+  const dailyByDay = days.map(value => records('daily', value));
+  const daily = dailyByDay.flat();
+  const weeklyPlanCompletions = [...daily, ...weekly];
+  const totalMinutes = sumMinutes(weeklyPlanCompletions) + pendingMinutes('weekly', weekly)
+    + dailyByDay.reduce((total, done) => total + pendingMinutes('daily', done), 0);
+  const estimate = {title: 'Part du temps total estimé de la semaine', completions: weeklyPlanCompletions, totalMinutes};
   const weekDone = data.completions.filter(item => item.day >= dateKey(start) && item.day <= dateKey(days[6]));
   return `${heading('Suivez la semaine du lundi au dimanche et ouvrez le détail de chaque jour.')}
-    <section class="panel week-panel"><header class="panel-heading"><span class="section-icon">${icon('weekly')}</span><div><h2>Tâches journalières</h2><p>${dailyCount} ${plural(dailyCount, 'réalisation', 'réalisations')} cette semaine</p></div></header>
-    <div class="week-days">${days.map(value => {
-      const done = records('daily', value);
+    <section class="panel week-panel"><header class="panel-heading"><span class="section-icon">${icon('weekly')}</span><div><h2>Tâches journalières</h2><p>${daily.length} ${plural(daily.length, 'réalisation', 'réalisations')} cette semaine</p></div></header>
+    <div class="week-days">${days.map((value, index) => {
+      const done = dailyByDay[index];
       const byId = new Map(done.map(item => [item.task_id, item]));
       const tasks = periodTasks('daily', done);
       return `<article class="week-day ${dateKey(value) === dateKey(new Date()) ? 'is-today' : ''}">
@@ -282,7 +309,19 @@ function renderWeekly() {
         }).join('')}</ul>
       </article>`;
     }).join('')}</div></section>
-    <div class="columns"><div class="column">${taskPanel('weekly', weekly, 'Tâches hebdomadaires', true)}</div><div class="column">${distribution(weekDone, 'Temps des tâches réalisées cette semaine')}</div></div>`;
+    <div class="columns"><div class="column">${taskPanel('weekly', weekly, 'Tâches hebdomadaires', true)}</div><div class="column">${distribution(weekDone, 'Temps des tâches réalisées cette semaine', estimate)}</div></div>`;
+}
+
+function monthlyPendingMinutes(monthly) {
+  let minutes = pendingMinutes('monthly', monthly);
+  for (let value = monthStart(day); value.getMonth() === day.getMonth(); value = shiftDay(value, 1)) {
+    minutes += pendingMinutes('daily', records('daily', value));
+    // Open weekly occurrences count in the month where their week ends.
+    if (value.getDay() === 0) {
+      minutes += pendingMinutes('weekly', records('weekly', value));
+    }
+  }
+  return minutes;
 }
 
 function renderMonthly() {
@@ -292,15 +331,18 @@ function renderMonthly() {
   const weekly = completions.filter(item => item.frequency === 'weekly').length;
   const monthly = records('monthly');
   const total = completions.length;
+  const completedMinutes = sumMinutes(completions);
+  const totalMinutes = completedMinutes + monthlyPendingMinutes(monthly);
+  const estimate = {title: 'Part du temps total estimé du mois', completions, totalMinutes};
   const stats = [['daily', daily, 'Tâches journalières'], ['weekly', weekly, 'Tâches hebdomadaires'],
-    ['monthly', monthly.length, 'Tâches mensuelles'], ['clock', duration(sumMinutes(completions)), 'Temps total estimé']];
+    ['monthly', monthly.length, 'Tâches mensuelles'], ['clock', duration(completedMinutes), 'Temps estimé réalisé']];
   return `${heading('Consultez le bilan du mois et validez les tâches mensuelles.')}
     <div class="stats">${stats.map(([symbol, value, label]) => `<div class="panel stat"><span class="section-icon">${icon(symbol)}</span><div><strong>${value}</strong><span>${label}</span></div></div>`).join('')}</div>
     <div class="columns"><div class="column">
       ${taskPanel('monthly', monthly, 'Tâches mensuelles', true)}
       <section class="panel"><header class="panel-heading"><span class="section-icon mint">${icon('history')}</span><div><h2>Historique du mois</h2><p>${total} ${plural(total, 'réalisation', 'réalisations')}</p></div></header>
       ${total ? `<ul class="activity-list month-history">${completions.map(item => `<li><span class="history-date">${shortDate(dateFrom(item.day))}</span><div><strong>${escape(item.name)}</strong><small>${frequencies[item.frequency]} · ${duration(item.minutes)}</small></div>${personTag(item.who)}</li>`).join('')}</ul>` : '<p class="empty-note">Aucune tâche réalisée ce mois-ci.</p>'}</section>
-    </div><div class="column">${distribution(completions, 'Temps des tâches réalisées ce mois-ci')}</div></div>`;
+    </div><div class="column">${distribution(completions, 'Temps des tâches réalisées ce mois-ci', estimate)}</div></div>`;
 }
 
 function renderTasks() {

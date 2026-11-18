@@ -97,8 +97,9 @@ def period_for(day, frequency):
 
 
 def state(db, day):
-    first = min(monday(day), day.replace(day=1))
-    last = max(monday(day) + timedelta(days=6), day.replace(day=calendar.monthrange(day.year, day.month)[1]))
+    first = monday(day.replace(day=1))
+    month_end = day.replace(day=calendar.monthrange(day.year, day.month)[1])
+    last = monday(month_end) + timedelta(days=6)
     tasks = db.execute('SELECT id, name, frequency, minutes FROM tasks WHERE archived = 0 ORDER BY id')
     completions = db.execute('SELECT * FROM completions WHERE day BETWEEN ? AND ? ORDER BY day DESC, rowid DESC',
                              (first.isoformat(), last.isoformat()))
